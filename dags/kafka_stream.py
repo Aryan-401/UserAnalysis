@@ -20,7 +20,7 @@ def get_data():
 def format_data(res):
     data = {}
     location = res['location']
-    data['id'] = uuid.uuid4()
+    # data['id'] = uuid.uuid4()
     data['first_name'] = res['name']['first']
     data['last_name'] = res['name']['last']
     data['gender'] = res['gender']
@@ -39,10 +39,15 @@ def format_data(res):
 
 def stream_data():
     import json
+    from kafka import KafkaProducer
+    from time import sleep
+
+    producer = KafkaProducer(bootstrap_servers = ['localhost:9092'], max_block_ms = 5000)  # TODO: Change when on docker container
     response = get_data()
     response = format_data(response)
-    json.dumps(response, indent=3)
-
+    response = json.dumps(response).encode('utf-8')
+    print(response)
+    producer.send('users_created', response)
 
 with DAG(task_id = 'user_automation',
          default_args=default_args,
@@ -51,5 +56,7 @@ with DAG(task_id = 'user_automation',
     
     streaming_task = PythonOperator(
         task_id = 'streaming_data_from_API',
-        python_callable=stream_data  # TODO: Make Function
+        python_callable=stream_data
     )
+
+# stream_data()  # Testing
