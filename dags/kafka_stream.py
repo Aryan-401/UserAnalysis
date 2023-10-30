@@ -2,7 +2,7 @@ from datetime import datetime
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 import uuid
-
+import logging
 default_args = {
     'owner': 'Aryan-401',
     'start_date': datetime(2023, 10, 25, 10, 00)
@@ -40,16 +40,24 @@ def format_data(res):
 def stream_data():
     import json
     from kafka import KafkaProducer
-    from time import sleep
+    from time import sleep, time
 
-    producer = KafkaProducer(bootstrap_servers = ['localhost:9092'], max_block_ms = 5000)  # TODO: Change when on docker container
-    response = get_data()
-    response = format_data(response)
-    response = json.dumps(response).encode('utf-8')
-    print(response)
-    producer.send('users_created', response)
+    producer = KafkaProducer(bootstrap_servers = ['broker:29092'], max_block_ms = 5000)
+    current_time = time() + 60
+    while True:
+        if time() > current_time:
+            break
+        try:
+            response = get_data()
+            response = format_data(response)
+            response = json.dumps(response).encode('utf-8')
 
-with DAG(task_id = 'user_automation',
+            producer.send('users_created', response)
+        except Exception as e:
+            logging.error(f"An Error Occured: {e}")
+            continue
+
+with DAG(dag_id = 'user_automation',
          default_args=default_args,
          schedule_interval='@daily',
          catchup=False) as dag:
